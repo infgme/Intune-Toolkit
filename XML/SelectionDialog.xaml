@@ -204,6 +204,18 @@
             <RowDefinition Height="Auto"/> <!-- Notifications dropdown -->
             <RowDefinition Height="Auto"/> <!-- Delivery label -->
             <RowDefinition Height="Auto"/> <!-- Delivery dropdown -->
+            
+            <!-- New Remediation Schedule Rows -->
+            <RowDefinition Height="Auto"/> <!-- Schedule Type Label -->
+            <RowDefinition Height="Auto"/> <!-- Schedule Type Combo -->
+            <RowDefinition Height="Auto"/> <!-- Interval Label -->
+            <RowDefinition Height="Auto"/> <!-- Interval Input -->
+            <RowDefinition Height="Auto"/> <!-- Run Remediation Check -->
+            <RowDefinition Height="Auto"/> <!-- Start Date Label -->
+            <RowDefinition Height="Auto"/> <!-- Start Date Picker -->
+            <RowDefinition Height="Auto"/> <!-- Start Time Label -->
+            <RowDefinition Height="Auto"/> <!-- Start Time Combo -->
+
             <RowDefinition Height="Auto"/> <!-- Button row -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -244,7 +256,26 @@
         <TextBlock x:Name="DeliveryTextBlock" Text="Delivery Optimization Priority:" Grid.Row="15" Margin="5" Visibility="Collapsed" HorizontalAlignment="Left"/>
         <ComboBox x:Name="DeliveryComboBox" Grid.Row="16" Margin="5" Visibility="Collapsed" Style="{StaticResource ComboBoxButtonStyle}" HorizontalAlignment="Stretch"/>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="17" Margin="5">
+        <!-- Remediation Script Schedule Controls -->
+        <TextBlock x:Name="ScheduleTypeTextBlock" Text="Schedule Type:" Grid.Row="17" Margin="5" Visibility="Collapsed" HorizontalAlignment="Left"/>
+        <ComboBox x:Name="ScheduleTypeComboBox" Grid.Row="18" Margin="5" Visibility="Collapsed" Style="{StaticResource ComboBoxButtonStyle}" HorizontalAlignment="Stretch"/>
+        
+        <TextBlock x:Name="IntervalTextBlock" Text="Interval:" Grid.Row="19" Margin="5" Visibility="Collapsed" HorizontalAlignment="Left"/>
+        <TextBox x:Name="IntervalTextBox" Grid.Row="20" Margin="5" Visibility="Collapsed" Text="1" />
+        
+        <CheckBox x:Name="RunRemediationCheckBox" Content="Run remediation script" Grid.Row="21" Margin="5" Visibility="Collapsed" IsChecked="True"/>
+        
+        <TextBlock x:Name="DateTextBlock" Text="Date:" Grid.Row="22" Margin="5" Visibility="Collapsed" HorizontalAlignment="Left"/>
+        <DatePicker x:Name="StartDatePicker" Grid.Row="23" Margin="5" Visibility="Collapsed" HorizontalAlignment="Stretch"/>
+        
+        <TextBlock x:Name="TimeTextBlock" Text="Time:" Grid.Row="24" Margin="5" Visibility="Collapsed" HorizontalAlignment="Left"/>
+        <StackPanel x:Name="TimeStackPanel" Orientation="Horizontal" Grid.Row="25" Margin="5" Visibility="Collapsed">
+            <ComboBox x:Name="HourComboBox" Width="60" Margin="0,0,5,0" Style="{StaticResource ComboBoxButtonStyle}"/>
+            <TextBlock Text=":" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <ComboBox x:Name="MinuteComboBox" Width="60" Style="{StaticResource ComboBoxButtonStyle}"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="26" Margin="5">
             <Button x:Name="AddExtraAssignmentButton" Content="Add Extra Assignment" Width="180" Style="{StaticResource BaseButtonStyle}"/>
             <Button x:Name="OkButton" Content="OK" Width="80" Style="{StaticResource BaseButtonStyle}"/>
             <Button x:Name="CancelButton" Content="Cancel" Width="80" Style="{StaticResource BaseButtonStyle}"/>

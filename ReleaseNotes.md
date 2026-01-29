@@ -1,4 +1,25 @@
 # Release Notes
+### v1.1.0
+- **New Features**
+  - **Device Health Scripts (Remediation Scripts) Support**
+    - Added full support for **Device Health Scripts** (Remediation Scripts).
+    - **View**: Added support to view Device Health Scripts in the main DataGrid, including detailed Schedule information (Interval, Time, Schedule Type).
+    - **Assign**: Added support to Assign Device Health Scripts to groups.
+      - **Schedule Configuration**: New UI in the Assignment dialog to configure specific execution schedules:
+        - **Daily**: Runs every X days at specific time.
+        - **Hourly**: Runs every X hours.
+        - **RunOnce**: Runs once at a specific date and time.
+      - Implemented specific validation logic for "Hourly" schedules (excludes `useUtc` property).
+    - **Delete Assignment**: Added support to delete assignments for Device Health Scripts.
+      - Ensures the mandatory `runSchedule` property is preserved for remaining assignments.
+    - **Restore**: Added support to restore Device Health Scripts assignments from backup JSON files.
+  - **UI Enhancements**
+    - Updated Selection Dialog to dynamically show/hide input fields based on the selected Schedule Type.
+
+- **BugFix**
+  - Fixed an issue where assigning an "Hourly" schedule to a remediation script would fail with a 500 Internal Server Error due to invalid payload structure.
+  - Fixed an issue where deleting or restoring assignments for Device Health Scripts would fail due to incorrect payload property names (`assignments` vs `deviceHealthScriptAssignments`).
+
 ### v1.0.1
 - **BugFix**
   - BREAKING CHANGE -> Permission requirements has changed on script policies. DeviceManagementScripts.ReadWrite.All is now required and Consent Request might be required to add the permissions

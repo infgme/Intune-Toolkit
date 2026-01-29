@@ -58,7 +58,7 @@ $ConnectButton.Add_Click({
         $AppConfigButton.IsEnabled = $true
         $MacosScriptsButton.IsEnabled = $true
         $IntentsButton.IsEnabled = $true
-        #$RemediationScriptsButton.IsEnabled = $true
+        $RemediationScriptsButton.IsEnabled = $true
         $PlatformScriptsButton.IsEnabled = $true
         $ConnectButton.IsEnabled = $false
         $ConnectEnterpriseAppButton.IsEnabled = $false

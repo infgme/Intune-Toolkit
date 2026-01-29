@@ -259,6 +259,9 @@
                 <DataGridTextColumn Header="Filter Display Name" Binding="{Binding FilterDisplayname}" Width="*"/>
                 <DataGridTextColumn Header="Filter Type" Binding="{Binding FilterType}" Width="*"/>
                 <DataGridTextColumn Header="Install Intent" Binding="{Binding InstallIntent}" Width="*" Visibility="Collapsed"/>
+                <DataGridTextColumn Header="Schedule" Binding="{Binding Schedule}" Width="*" Visibility="Collapsed"/>
+                <DataGridTextColumn Header="Interval" Binding="{Binding Interval}" Width="*" Visibility="Collapsed"/>
+                <DataGridTextColumn Header="Schedule Time" Binding="{Binding ScheduleTime}" Width="*" Visibility="Collapsed"/>
             </DataGrid.Columns>
         </DataGrid>
         <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Grid.Row="3" Grid.Column="1" Margin="10">

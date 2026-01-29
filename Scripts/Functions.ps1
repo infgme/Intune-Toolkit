@@ -317,6 +317,38 @@ function Process-Assignment {
         "Include" 
     }
 
+    # Extract runSchedule info if available
+    $scheduleType = ""
+    $scheduleInterval = ""
+    $scheduleDateTime = ""
+    
+    if ($assignment.runSchedule) {
+        if ($assignment.runSchedule.'@odata.type') {
+            $scheduleType = $assignment.runSchedule.'@odata.type' -replace "#microsoft.graph.deviceHealthScript", "" -replace "Schedule", ""
+        }
+        
+        $intervalVal = $assignment.runSchedule.interval
+        
+        if ($scheduleType -eq "RunOnce") {
+             $scheduleInterval = ""
+        } elseif ($scheduleType -eq "Hourly") {
+             if ($intervalVal -eq 1) { $scheduleInterval = "Repeats every hour" }
+             else { $scheduleInterval = "Repeats every $intervalVal hours" }
+        } elseif ($scheduleType -eq "Daily") {
+             if ($intervalVal -eq 1) { $scheduleInterval = "Repeats every day" }
+             else { $scheduleInterval = "Repeats every $intervalVal days" }
+        } else {
+             if ($intervalVal) { $scheduleInterval = $intervalVal }
+        }
+        
+        $timeParts = @()
+        if ($assignment.runSchedule.date) { $timeParts += $assignment.runSchedule.date }
+        if ($assignment.runSchedule.time) { $timeParts += $assignment.runSchedule.time }
+        if ($timeParts.Count -gt 0) {
+            $scheduleDateTime = $timeParts -join " "
+        }
+    }
+
     # Build and return the processed assignment object.
     return [PSCustomObject]@{
         PolicyId          = $policy.id
@@ -329,6 +361,9 @@ function Process-Assignment {
         FilterDisplayname = $filterDisplayName
         FilterType        = $assignment.target.deviceAndAppManagementAssignmentFilterType
         InstallIntent     = if ($isMobileApp) { if ($assignment.intent) { $assignment.intent } else { "" } } else { "" }
+        Schedule          = $scheduleType
+        Interval          = $scheduleInterval
+        ScheduleTime      = $scheduleDateTime
         Platform          = $platform
         ApplicationType   = if ($isMobileApp) { if ($policy.'@odata.type') { Format-ApplicationType $policy.'@odata.type' } else { "" } } else { "" }
     }
@@ -387,6 +422,8 @@ function Reload-Grid {
             $platform = Get-PlatformApps -odataType $policy.'@odata.type'
         } elseif ($type -eq "groupPolicyConfigurations") {
             $platform = "Windows"
+        } elseif ($type -eq "deviceHealthScripts") {
+            $platform = "Windows"
         } elseif ($type -eq "deviceManagementScripts") {
             $platform = "Windows"
         } elseif ($type -eq "deviceShellScripts") {
@@ -436,6 +473,9 @@ function Reload-Grid {
                     FilterDisplayname = ""
                     FilterType        = ""
                     InstallIntent     = ""
+                    Schedule          = ""
+                    Interval          = ""
+                    ScheduleTime      = ""
                     Platform          = $platform
                 }
             }
@@ -461,6 +501,9 @@ function Reload-Grid {
                     FilterDisplayname = ""
                     FilterType        = ""
                     InstallIntent     = ""
+                    Schedule          = ""
+                    Interval          = ""
+                    ScheduleTime      = ""
                     Platform          = $platform
                     ApplicationType   = Format-ApplicationType $policy.'@odata.type'
                 }
@@ -529,6 +572,7 @@ function Load-PolicyData {
     $AddAssignmentButton.IsEnabled = $false
     $BackupButton.IsEnabled = $false
     $RestoreButton.IsEnabled = $false
+    $RemediationScriptsButton.IsEnabled = $false
     $SearchFieldComboBox.IsEnabled = $false
     $SearchBox.IsEnabled = $false
     $SearchButton.IsEnabled = $false
@@ -552,6 +596,11 @@ function Load-PolicyData {
     $FilterDisplayNameColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Filter Display Name" }
     $FilterTypeColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Filter Type" }
 
+    # Retrieve columns for device health scripts (schedule info)
+    $ScheduleColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Schedule" }
+    $IntervalColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Interval" }
+    $ScheduleTimeColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Schedule Time" }
+
     if ($policyType -eq "mobileApps") {
         $InstallIntentColumn.Visibility = [System.Windows.Visibility]::Visible
         $ApplicationTypeColumn.Visibility = [System.Windows.Visibility]::Visible
@@ -559,6 +608,17 @@ function Load-PolicyData {
         $InstallIntentColumn.Visibility = [System.Windows.Visibility]::Collapsed
         $ApplicationTypeColumn.Visibility = [System.Windows.Visibility]::Collapsed
     }
+
+    if ($policyType -eq "deviceHealthScripts") {
+        if ($ScheduleColumn) { $ScheduleColumn.Visibility = [System.Windows.Visibility]::Visible }
+        if ($IntervalColumn) { $IntervalColumn.Visibility = [System.Windows.Visibility]::Visible }
+        if ($ScheduleTimeColumn) { $ScheduleTimeColumn.Visibility = [System.Windows.Visibility]::Visible }
+    } else {
+        if ($ScheduleColumn) { $ScheduleColumn.Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($IntervalColumn) { $IntervalColumn.Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($ScheduleTimeColumn) { $ScheduleTimeColumn.Visibility = [System.Windows.Visibility]::Collapsed }
+    }
+
     if ($policyType -eq "deviceShellScripts" -or $policyType -eq "intents" -or $policyType -eq "deviceManagementScripts" -or $policyType -eq "deviceCustomAttributeShellScripts" -or $policyType -eq "windowsAutopilotDeploymentProfiles") {
         $FilterDisplayNameColumn.Visibility = [System.Windows.Visibility]::Collapsed
         $FilterTypeColumn.Visibility = [System.Windows.Visibility]::Collapsed
@@ -604,6 +664,7 @@ function Load-PolicyData {
     $AddAssignmentButton.IsEnabled = $true
     $BackupButton.IsEnabled = $true
     $RestoreButton.IsEnabled = $true
+    $RemediationScriptsButton.IsEnabled = $true
     $SearchFieldComboBox.IsEnabled = $true
     $SearchBox.IsEnabled = $true
     $SearchButton.IsEnabled = $true

@@ -29,7 +29,9 @@ function Show-SelectionDialog {
         [Parameter(Mandatory = $false)]
         [bool]$includeIntent = $false,
         [Parameter(Mandatory = $false)]
-        [string]$appODataType
+        [string]$appODataType,
+        [Parameter(Mandatory = $false)]
+        [bool]$isRemediationScript = $false
     )
 
     Write-IntuneToolkitLog "Show-SelectionDialog function called" -component "Show-SelectionDialog" -file "SelectionDialog.ps1"
@@ -85,6 +87,19 @@ function Show-SelectionDialog {
     $DeliveryTextBlock          = $Window.FindName("DeliveryTextBlock")
     $DeliveryComboBox           = $Window.FindName("DeliveryComboBox")
 
+    # Remediation Schedule Elements
+    $ScheduleTypeTextBlock   = $Window.FindName("ScheduleTypeTextBlock")
+    $ScheduleTypeComboBox    = $Window.FindName("ScheduleTypeComboBox")
+    $IntervalTextBlock       = $Window.FindName("IntervalTextBlock")
+    $IntervalTextBox         = $Window.FindName("IntervalTextBox")
+    $RunRemediationCheckBox  = $Window.FindName("RunRemediationCheckBox")
+    $DateTextBlock           = $Window.FindName("DateTextBlock")
+    $StartDatePicker         = $Window.FindName("StartDatePicker")
+    $TimeTextBlock           = $Window.FindName("TimeTextBlock")
+    $TimeStackPanel          = $Window.FindName("TimeStackPanel")
+    $HourComboBox            = $Window.FindName("HourComboBox")
+    $MinuteComboBox          = $Window.FindName("MinuteComboBox")
+
     # ---------------------------------------------------------------------------
     # Validate that all required UI elements are found.
     # ---------------------------------------------------------------------------
@@ -133,6 +148,86 @@ function Show-SelectionDialog {
         $NotificationsComboBox.Visibility = "Collapsed"
         $DeliveryTextBlock.Visibility     = "Collapsed"
         $DeliveryComboBox.Visibility      = "Collapsed"
+    }
+
+    # ---------------------------------------------------------------------------
+    # Handle Remediation Script Schedule Logic
+    # ---------------------------------------------------------------------------
+    if ($isRemediationScript) {
+        # Show main schedule type and checkbox
+        $ScheduleTypeTextBlock.Visibility = "Visible"
+        $ScheduleTypeComboBox.Visibility  = "Visible"
+        $RunRemediationCheckBox.Visibility = "Visible"
+
+        # Initialize Schedule Types
+        $ScheduleTypeComboBox.Items.Clear()
+        foreach ($st in @("Daily", "Hourly", "RunOnce")) {
+            $item = New-Object Windows.Controls.ComboBoxItem
+            $item.Content = $st
+            $ScheduleTypeComboBox.Items.Add($item)
+        }
+        $ScheduleTypeComboBox.SelectedIndex = 0
+
+        # Initialize Time Pickers (00-23, 00-59)
+        $HourComboBox.Items.Clear()
+        0..23 | ForEach-Object { $HourComboBox.Items.Add(("{0:D2}" -f $_)) } | Out-Null
+        $HourComboBox.SelectedIndex = 0
+        
+        $MinuteComboBox.Items.Clear()
+        0..59 | ForEach-Object { $MinuteComboBox.Items.Add(("{0:D2}" -f $_)) } | Out-Null
+        $MinuteComboBox.SelectedIndex = 0
+
+        # Logic to toggle visibility based on Schedule Type
+        $updateVisibility = {
+            if ($ScheduleTypeComboBox.SelectedItem) {
+                $selectedType = $ScheduleTypeComboBox.SelectedItem.Content
+                
+                # Default everything to collapsed first
+                $IntervalTextBlock.Visibility = "Collapsed"
+                $IntervalTextBox.Visibility   = "Collapsed"
+                $DateTextBlock.Visibility     = "Collapsed"
+                $StartDatePicker.Visibility   = "Collapsed"
+                $TimeTextBlock.Visibility     = "Collapsed"
+                $TimeStackPanel.Visibility    = "Collapsed"
+
+                if ($selectedType -eq "Hourly") {
+                    $IntervalTextBlock.Visibility = "Visible"
+                    $IntervalTextBox.Visibility   = "Visible"
+                    $IntervalTextBlock.Text       = "Interval (Hours):"
+                }
+                elseif ($selectedType -eq "Daily") {
+                    $IntervalTextBlock.Visibility = "Visible"
+                    $IntervalTextBox.Visibility   = "Visible"
+                    $IntervalTextBlock.Text       = "Interval (Days):"
+                    $TimeTextBlock.Visibility     = "Visible"
+                    $TimeStackPanel.Visibility    = "Visible"
+                }
+                elseif ($selectedType -eq "RunOnce") {
+                    $DateTextBlock.Visibility     = "Visible"
+                    $StartDatePicker.Visibility   = "Visible"
+                    $TimeTextBlock.Visibility     = "Visible"
+                    $TimeStackPanel.Visibility    = "Visible"
+                    # RunOnce interval is implicitly 1, usually hidden or ignored, but we can hide it.
+                }
+            }
+        }
+
+        $ScheduleTypeComboBox.Add_SelectionChanged($updateVisibility)
+        
+        # Trigger initial selection logic
+        & $updateVisibility
+
+    } else {
+        # Ensure everything is collapsed
+        $ScheduleTypeTextBlock.Visibility = "Collapsed"
+        $ScheduleTypeComboBox.Visibility  = "Collapsed"
+        $RunRemediationCheckBox.Visibility= "Collapsed"
+        $IntervalTextBlock.Visibility     = "Collapsed"
+        $IntervalTextBox.Visibility       = "Collapsed"
+        $DateTextBlock.Visibility         = "Collapsed"
+        $StartDatePicker.Visibility       = "Collapsed"
+        $TimeTextBlock.Visibility         = "Collapsed"
+        $TimeStackPanel.Visibility        = "Collapsed"
     }
 
     # ---------------------------------------------------------------------------
@@ -241,6 +336,12 @@ function Show-SelectionDialog {
         Intent                       = $null
         Notifications                = $null
         DeliveryOptimizationPriority = $null
+        # Remediation specific
+        ScheduleType                 = $null
+        Interval                     = $null
+        StartDate                    = $null
+        StartTime                    = $null
+        RunRemediation               = $null
     }
     $script:DialogResult = "OK"
 
@@ -268,6 +369,27 @@ function Show-SelectionDialog {
         if ($DeliveryComboBox.Visibility -eq 'Visible') {
             $selection.DeliveryOptimizationPriority = $DeliveryComboBox.SelectedItem.Content
         }
+        
+        # Capture Remediation Schedule
+        if ($isRemediationScript) {
+            $selection.ScheduleType   = $ScheduleTypeComboBox.SelectedItem.Content
+            $selection.Interval       = $IntervalTextBox.Text
+            $selection.RunRemediation = $RunRemediationCheckBox.IsChecked
+            
+            if ($StartDatePicker.Visibility -eq 'Visible') {
+                $selection.StartDate = $StartDatePicker.SelectedDate
+            }
+            if ($TimeStackPanel.Visibility -eq 'Visible') {
+                $selection.StartTime = "{0}:{1}:00" -f $HourComboBox.SelectedItem, $MinuteComboBox.SelectedItem
+            }
+            
+            # Simple validation for Interval
+            if ($IntervalTextBox.Visibility -eq 'Visible' -and -not [int]::TryParse($IntervalTextBox.Text, [ref]$null)) {
+                 [System.Windows.MessageBox]::Show("Please enter a valid number for Interval.")
+                 return
+            }
+        }
+
         $script:DialogResult = "OK"
         $Window.Close()
     })
@@ -296,6 +418,26 @@ function Show-SelectionDialog {
         if ($DeliveryComboBox.Visibility -eq 'Visible') {
             $selection.DeliveryOptimizationPriority = $DeliveryComboBox.SelectedItem.Content
         }
+        
+        # Capture Remediation Schedule (Duplicate logic for AddExtra)
+        if ($isRemediationScript) {
+            $selection.ScheduleType   = $ScheduleTypeComboBox.SelectedItem.Content
+            $selection.Interval       = $IntervalTextBox.Text
+            $selection.RunRemediation = $RunRemediationCheckBox.IsChecked
+            
+            if ($StartDatePicker.Visibility -eq 'Visible') {
+                $selection.StartDate = $StartDatePicker.SelectedDate
+            }
+            if ($TimeStackPanel.Visibility -eq 'Visible') {
+                $selection.StartTime = "{0}:{1}:00" -f $HourComboBox.SelectedItem, $MinuteComboBox.SelectedItem
+            }
+             # Simple validation for Interval
+            if ($IntervalTextBox.Visibility -eq 'Visible' -and -not [int]::TryParse($IntervalTextBox.Text, [ref]$null)) {
+                 [System.Windows.MessageBox]::Show("Please enter a valid number for Interval.")
+                 return
+            }
+        }
+        
         $script:DialogResult = "AddExtra"
         $Window.Close()
     })
@@ -334,6 +476,11 @@ function Show-SelectionDialog {
             Intent                       = $selection.Intent
             Notifications                = $selection.Notifications
             DeliveryOptimizationPriority = $selection.DeliveryOptimizationPriority
+            ScheduleType                 = $selection.ScheduleType
+            Interval                     = $selection.Interval
+            StartDate                    = $selection.StartDate
+            StartTime                    = $selection.StartTime
+            RunRemediation               = $selection.RunRemediation
             DialogResult                 = $script:DialogResult
         }
     } else {

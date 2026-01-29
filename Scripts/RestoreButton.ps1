@@ -53,7 +53,11 @@ $RestoreButton.Add_Click({
                     $bodyObject = @{
                         deviceManagementScriptAssignments = $policy.assignments
                     }
-                }else {
+                } elseif ($global:CurrentPolicyType -eq "deviceHealthScripts") {
+                    $bodyObject = @{
+                        deviceHealthScriptAssignments = $policy.assignments
+                    }
+                } else {
                     $bodyObject = @{
                         assignments = $policy.assignments
                     }
