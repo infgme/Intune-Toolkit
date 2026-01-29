@@ -1,5 +1,5 @@
 # Add additional filters on AddFilterButton click
-# Relies on $AddFilterButton and $AdditionalFiltersPanel variables defined in Main.ps1
+# Relies on $AddFilterButton and $AdditionalFiltersPanel variables defined in Invoke-IntuneToolkit.ps1
 
 $AddFilterButton.Add_Click({
     # Horizontal panel for one clause

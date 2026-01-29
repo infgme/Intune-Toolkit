@@ -69,7 +69,7 @@ The Intune Toolkit is a PowerShell-based solution designed to simplify the manag
 
 1. **Launch the Main Script:**
     ```sh
-    .\Main.ps1
+    .\Invoke-IntuneToolkit.ps1
     ```
 
 2. **Connect to Microsoft Graph:**
@@ -94,7 +94,7 @@ The Intune Toolkit is a PowerShell-based solution designed to simplify the manag
 
 ## File Structure
 
-- **Main.ps1:** The main script that initializes the application, loads the UI, and imports other scripts.
+- **Invoke-IntuneToolkit.ps1:** The main script that initializes the application, loads the UI, and imports other scripts.
 - **Scripts/**: Contains all function scripts for various actions.
   - **Functions.ps1:** Contains common functions used across the toolkit.
   - **ConnectButton.ps1:** Handles the connect button click event.

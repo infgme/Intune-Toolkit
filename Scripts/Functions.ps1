@@ -297,8 +297,12 @@ function Process-Assignment {
     } elseif ($assignment.target.'@odata.type' -eq "#microsoft.graph.allLicensedUsersAssignmentTarget" -or 
               $assignment.target.'@odata.type' -eq "#microsoft.graph.allUsersAssignmentTarget") {
         $groupDisplayName = "All Users"
-    } elseif ($assignment.target.groupId -and $groupLookup.ContainsKey($assignment.target.groupId)) {
-        $groupDisplayName = $groupLookup[$assignment.target.groupId]
+    } elseif ($assignment.target.groupId) {
+        if ($groupLookup.ContainsKey($assignment.target.groupId)) {
+            $groupDisplayName = $groupLookup[$assignment.target.groupId]
+        } else {
+            $groupDisplayName = "Group does not exist any more ($($assignment.target.groupId))"
+        }
     } else {
         $groupDisplayName = ""
     }
