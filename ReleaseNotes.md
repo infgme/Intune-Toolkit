@@ -1,4 +1,13 @@
 # Release Notes
+### v1.2.0
+- **New Features**
+  - **Delete Policy**
+    - Added ability to **delete policies** directly from the toolkit.
+    - **Advanced Actions**: Added an "Advanced Actions" checkbox (bottom-left) to enable sensitive operations like deletion.
+    - **Safety**: Enhanced confirmation dialogs with custom actions (Red "Delete" button) and dynamic messages identifying the specific policy type.
+- **UI Enhancements**
+  - **Assignment Dialog**: Updated the assignment popup (`SelectionDialog`) with a scrollable view to better support complex forms (like Remediation script schedules) and smaller screens, while keeping action buttons pinned to the bottom.
+
 ### v1.1.0
 - **New Features**
   - **Device Health Scripts (Remediation Scripts) Support**

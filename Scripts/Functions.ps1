@@ -569,6 +569,7 @@ function Load-PolicyData {
     $PlatformScriptsButton.IsEnabled = $false
     $MacosScriptsButton.IsEnabled = $false
     $DeleteAssignmentButton.IsEnabled = $false
+    $DeletePolicyButton.IsEnabled = $false
     $AddAssignmentButton.IsEnabled = $false
     $BackupButton.IsEnabled = $false
     $RestoreButton.IsEnabled = $false
@@ -671,6 +672,7 @@ function Load-PolicyData {
     $AssignmentReportButton.IsEnabled = $true
     $RefreshButton.IsEnabled = $true
     $RenameButton.IsEnabled = $true
+    $DeletePolicyButton.IsEnabled = $true
     $IntentsButton.IsEnabled = $true
     $DeviceCustomAttributeShellScriptsButton.IsEnabled = $true
     # Enable add-filter button after load
@@ -847,7 +849,16 @@ function Show-ExportOptionsDialog {
 function Show-ConfirmationDialog {
     param (
         [Parameter(Mandatory = $true)]
-        [string]$SummaryText
+        [string]$SummaryText,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ConfirmButtonText = "OK",
+
+        [Parameter(Mandatory = $false)]
+        [string]$ConfirmButtonColor = "#007ACC", # Default blue
+
+        [Parameter(Mandatory = $false)]
+        [string]$Title = "Confirm Assignment Changes"
     )
 
     # Define the path to the XAML file that contains the dialog layout.
@@ -881,8 +892,23 @@ function Show-ConfirmationDialog {
         return $false
     }
 
+    # Set Title and Header
+    $Window.Title = $Title
+    $TitleTextBlock.Text = $Title
+
     # Populate the details text.
     $DetailsTextBlock.Text = $SummaryText
+
+    # Update Confirm Button Text and Color
+    $OkButton.Content = $ConfirmButtonText
+    try {
+        $brushConverter = New-Object System.Windows.Media.BrushConverter
+        $brush = $brushConverter.ConvertFromString($ConfirmButtonColor)
+        $OkButton.Background = $brush
+        $OkButton.BorderBrush = $brush
+    } catch {
+        Write-IntuneToolkitLog "Failed to set custom color: $_" -component "Show-ConfirmationDialog" -file "Functions.ps1"
+    }
 
     # OK button: return $true
     $OkButton.Add_Click({

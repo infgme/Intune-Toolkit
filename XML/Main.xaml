@@ -276,11 +276,19 @@
                 <!-- Replace separate exports with unified AssignmentReport button -->
                 <Button x:Name="AssignmentReportButton" Content="Assignment Report" Width="150" Style="{StaticResource BaseButtonStyle}" IsEnabled="False"/>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,5,0,0" HorizontalAlignment="Center">
+                <Button x:Name="DeletePolicyButton" Content="Delete" Width="150" Style="{StaticResource BaseButtonStyle}" Background="Red" IsEnabled="False" Visibility="Collapsed"/>
+            </StackPanel>
         </StackPanel>
-        <!-- Mode toggle between Actions and Reports at bottom left (segmented control) -->
-        <StackPanel Orientation="Horizontal" Grid.Row="4" Grid.Column="0" HorizontalAlignment="Left" Margin="25,10,5,5">
-            <ToggleButton x:Name="ActionsToggle" Style="{StaticResource SegmentLeftStyle}" IsChecked="True" Content="Actions"/>
-            <ToggleButton x:Name="ReportsToggle" Style="{StaticResource SegmentRightStyle}" IsChecked="False" Content="Reports"/>
+        <!-- Bottom Left Control Area: Mode Toggle + Advanced Actions -->
+        <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Vertical" HorizontalAlignment="Left" Margin="25,10,5,5">
+            <!-- Mode toggle between Actions and Reports (segmented) -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                <ToggleButton x:Name="ActionsToggle" Style="{StaticResource SegmentLeftStyle}" IsChecked="True" Content="Actions"/>
+                <ToggleButton x:Name="ReportsToggle" Style="{StaticResource SegmentRightStyle}" IsChecked="False" Content="Reports"/>
+            </StackPanel>
+            <!-- Advanced Actions CheckBox -->
+            <CheckBox x:Name="AdvancedActionsCheckBox" Content="Advanced Actions" Margin="5,0,0,0" Visibility="Collapsed"/>
         </StackPanel>
         <Border Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="4" Height="30" Margin="0,5,0,0">
                 <TextBlock x:Name="ToolkitVersion" Text="" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>

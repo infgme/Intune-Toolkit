@@ -146,6 +146,11 @@ function Show-Window {
         $DeviceCustomAttributeShellScriptsButton = $Window.FindName("DeviceCustomAttributeShellScriptsButton")
         $AddFilterButton = $Window.FindName("AddFilterButton")
         $AdditionalFiltersPanel = $Window.FindName("AdditionalFiltersPanel")
+        
+        # New Advanced Actions
+        $AdvancedActionsCheckBox = $Window.FindName("AdvancedActionsCheckBox")
+        $DeletePolicyButton = $Window.FindName("DeletePolicyButton")
+        
         # Add filter clause logic sourced from external script
         
         # Unified export button
@@ -189,7 +194,8 @@ function Show-Window {
             $DeleteAssignmentButton,
             $AddAssignmentButton,
             $BackupButton,
-            $RestoreButton
+            $RestoreButton,
+            $AdvancedActionsCheckBox
         )
         $reportButtons = @(
             $SecurityBaselineAnalysisButton,
@@ -200,12 +206,29 @@ function Show-Window {
             param([bool]$showActions)
             foreach ($btn in $actionButtons) { $btn.Visibility = if ($showActions) { 'Visible' } else { 'Collapsed' } }
             foreach ($btn in $reportButtons) { $btn.Visibility = if ($showActions) { 'Collapsed' } else { 'Visible' } }
+            
+            # Special logic for DeletePolicyButton
+            if ($showActions -and $AdvancedActionsCheckBox.IsChecked) {
+                $DeletePolicyButton.Visibility = 'Visible'
+            } else {
+                $DeletePolicyButton.Visibility = 'Collapsed'
+            }
         }
         # Initialize with Actions view
         Set-BottomButtons -showActions $true
+
+        # Handle Advanced Actions CheckBox Toggle
+        $AdvancedActionsCheckBox.Add_Checked({
+             if ($ActionsToggle.IsChecked) { $DeletePolicyButton.Visibility = 'Visible' }
+        })
+        $AdvancedActionsCheckBox.Add_Unchecked({
+             $DeletePolicyButton.Visibility = 'Collapsed'
+        })
+
         # Wire toggles to update visibility
         $ActionsToggle.Add_Click({ Set-BottomButtons -showActions $true })
         $ReportsToggle.Add_Click({ Set-BottomButtons -showActions $false })
+
 
         # Import unified report button handler
         #$AssignmentReportButton = $Window.FindName("AssignmentReportButton")
@@ -236,6 +259,7 @@ function Show-Window {
         . .\Scripts\BackupButton.ps1
         . .\Scripts\RestoreButton.ps1
         . .\Scripts\AssignmentReportButton.ps1
+        . .\Scripts\DeletePolicyButton.ps1  # New Delete Policy script
         . .\Scripts\Show-SelectionDialog.ps1
         . .\Scripts\SearchButton.ps1
         . .\Scripts\RemediationScriptsButton.ps1
