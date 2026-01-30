@@ -330,7 +330,28 @@ if ($interactive) {
     Install-GraphModules
     
     try {
-        Connect-MgGraph -Scopes $Scopes -ErrorAction Stop
+        # Build connection parameters
+        $connectParams = @{
+            Scopes = $Scopes
+            ErrorAction = 'Stop'
+        }
+        
+        # Add TenantId if provided (required for single-tenant apps)
+        if ($TenantId) {
+            $connectParams['TenantId'] = $TenantId
+            Write-IntuneToolkitLog "Using Tenant ID: $TenantId (single-tenant app)" -component "Interactive" -file "ConnectButton.ps1"
+        }
+        
+        # Add custom App ID if provided, otherwise use default Microsoft Graph PowerShell app
+        if ($AppId) {
+            $connectParams['ClientId'] = $AppId
+            Write-IntuneToolkitLog "Connecting with custom App ID: $AppId" -component "Interactive" -file "ConnectButton.ps1"
+        }
+        else {
+            Write-IntuneToolkitLog "Connecting with default Microsoft Graph PowerShell app" -component "Interactive" -file "ConnectButton.ps1"
+        }
+        
+        Connect-MgGraph @connectParams
         Write-IntuneToolkitLog "Successfully connected to Microsoft Graph using interactive login with specified scopes" -component "Interactive" -file "ConnectButton.ps1"
         Write-Host "This session current permissions `n" -ForegroundColor cyan
         Get-MgContext | Select-Object -ExpandProperty Scopes -ErrorAction Stop

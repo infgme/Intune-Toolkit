@@ -37,24 +37,71 @@ function Export-ToMarkdown {
         $toc = "## Table of Contents`n`n"
         # Main content
         $content = ""
-        $groups = $PolicyDataGrid | Group-Object PolicyId | Sort-Object { $_.Group[0].Platform }, { $_.Group[0].PolicyName }
+        # Group by PolicyType first (if available), then Platform, then Name
+        # Check if items have "PolicyType" property (e.g. detailed report)
+        $firstPolicy = $PolicyDataGrid | Select-Object -First 1
+        $hasPolicyType = $firstPolicy -and $firstPolicy.PSObject.Properties['PolicyType']
+        if ($hasPolicyType) {
+             $groups = $PolicyDataGrid | Group-Object PolicyType, PolicyId | Sort-Object { $_.Group[0].PolicyType }, { $_.Group[0].Platform }, { $_.Group[0].PolicyName }
+        } else {
+             $groups = $PolicyDataGrid | Group-Object PolicyId | Sort-Object { $_.Group[0].Platform }, { $_.Group[0].PolicyName }
+        }
+
         $currentPlatform = ""
+        $currentType = ""
+
         foreach ($policyGroup in $groups) {
             $first = $policyGroup.Group[0]
+            
+            # Handle Grouping Headers
+            # If we utilize PolicyType grouping, we display it as top level H2
+            if ($hasPolicyType) {
+                 $thisType = $first.PolicyType
+                 if ($currentType -ne $thisType) {
+                     $currentType = $thisType
+                     $content += "## Type: $currentType`n`n"
+                     $toc += "- [Type: $currentType](#$(($currentType -replace ' ','-').ToLower()))`n"
+                 }
+            }
+
+            # Then Platform as H3 (or H2 if no type)
             if ($currentPlatform -ne $first.Platform) {
                 $currentPlatform = $first.Platform
-                $content += "## Platform: $currentPlatform`n`n"
-                $toc += "- [$currentPlatform](#$(($currentPlatform -replace ' ','-').ToLower()))`n"
+                if ($hasPolicyType) {
+                    $content += "### Platform: $currentPlatform`n`n"
+                } else {
+                    $content += "## Platform: $currentPlatform`n`n"
+                }
             }
+            
             $policyName = $first.PolicyName
             $toc += "  - [$policyName](#$(($policyName -replace ' ','-').ToLower()))`n"
-            $content += "### $policyName`n`n"
-            $content += "#### Description`n`n$($first.PolicyDescription)`n`n"
-            $content += "#### Assignments`n`n"
-            # Table header
-            if ($CurrentPolicyType -eq 'mobileApps') {
-                $content += "| GroupDisplayname | GroupId | Platform | AssignmentType | FilterDisplayname | FilterType | InstallIntent |`n"
-                $content += "| --------------- | ------- | -------- | -------------- | ----------------- | ---------- | ------------- |`n"
+            if ($hasPolicyType) {
+                $content += "#### $policyName`n`n"
+                $content += "##### Description`n`n$($first.PolicyDescription)`n`n"
+                $content += "##### Assignments`n`n"
+            } else {
+                $content += "### $policyName`n`n"
+                $content += "#### Description`n`n$($first.PolicyDescription)`n`n"
+                $content += "#### Assignments`n`n"
+            }
+
+            # Table header logic
+            # Determine which columns to show for THIS specific policy group
+            $showIntent = ($CurrentPolicyType -eq 'mobileApps') -or ($first.InstallIntent -and $first.InstallIntent -ne "") -or ($CurrentPolicyType -eq 'GlobalSearchResults' -and ($first.PolicyType -eq 'Mobile Apps' -or $first.ApplicationType))
+            $showAppDetails = ($CurrentPolicyType -eq 'mobileApps') -or ($CurrentPolicyType -eq 'GlobalSearchResults' -and ($first.PolicyType -eq 'Mobile Apps' -or $first.ApplicationType))
+            $showSchedule   = ($CurrentPolicyType -eq 'deviceHealthScripts') -or ($CurrentPolicyType -eq 'GlobalSearchResults' -and ($first.PolicyType -eq 'Remediation Scripts' -or $first.Schedule))
+            
+            # If Global Search, we might want to be more inclusive
+            if ($showAppDetails) {
+                 $content += "| GroupDisplayname | GroupId | Platform | AssignmentType | FilterDisplayname | FilterType | InstallIntent | Notification | DeliveryPriority |`n"
+                 $content += "| --------------- | ------- | -------- | -------------- | ----------------- | ---------- | ------------- | ------------ | ---------------- |`n"
+            } elseif ($showSchedule) {
+                 $content += "| GroupDisplayname | GroupId | Platform | AssignmentType | Schedule | Interval | Time |`n"
+                 $content += "| --------------- | ------- | -------- | -------------- | -------- | -------- | ---- |`n"
+            } elseif ($showIntent) {
+                 $content += "| GroupDisplayname | GroupId | Platform | AssignmentType | FilterDisplayname | FilterType | InstallIntent |`n"
+                 $content += "| --------------- | ------- | -------- | -------------- | ----------------- | ---------- | ------------- |`n"
             } elseif ($CurrentPolicyType -in @('deviceCustomAttributeShellScripts','intents','deviceShellScripts','deviceManagementScripts')) {
                 $content += "| GroupDisplayname | GroupId | Platform | AssignmentType |`n"
                 $content += "| --------------- | ------- | -------- | -------------- |`n"
@@ -62,8 +109,13 @@ function Export-ToMarkdown {
                 $content += "| GroupDisplayname | GroupId | Platform | AssignmentType | FilterDisplayname | FilterType |`n"
                 $content += "| --------------- | ------- | -------- | -------------- | ----------------- | ---------- |`n"
             }
+
             foreach ($item in $policyGroup.Group) {
-                if ($CurrentPolicyType -eq 'mobileApps') {
+                if ($showAppDetails) {
+                    $content += "| $($item.GroupDisplayname) | $($item.GroupId) | $($item.Platform) | $($item.AssignmentType) | $($item.FilterDisplayname) | $($item.FilterType) | $($item.InstallIntent) | $($item.Notification) | $($item.DeliveryOptim) |`n"
+                } elseif ($showSchedule) {
+                    $content += "| $($item.GroupDisplayname) | $($item.GroupId) | $($item.Platform) | $($item.AssignmentType) | $($item.Schedule) | $($item.Interval) | $($item.ScheduleTime) |`n"
+                } elseif ($showIntent) {
                     $content += "| $($item.GroupDisplayname) | $($item.GroupId) | $($item.Platform) | $($item.AssignmentType) | $($item.FilterDisplayname) | $($item.FilterType) | $($item.InstallIntent) |`n"
                 } elseif ($CurrentPolicyType -in @('deviceCustomAttributeShellScripts','intents','deviceShellScripts','deviceManagementScripts')) {
                     $content += "| $($item.GroupDisplayname) | $($item.GroupId) | $($item.Platform) | $($item.AssignmentType) |`n"
@@ -129,12 +181,27 @@ function Export-ToHtml {
         $iconImg = if ($headerLogoBase64) { "<img src='data:$headerLogoMime;base64,$headerLogoBase64' class='header-logo' alt='Intune Toolkit Logo'>" } else { '' }
 
         # Group policies
-        $groups = $PolicyDataGrid | Group-Object PolicyId | Sort-Object { $_.Group[0].Platform }, { $_.Group[0].PolicyName }
+        # Check if items have "PolicyType" property
+        $firstPolicy = $PolicyDataGrid | Select-Object -First 1
+        $hasPolicyType = $firstPolicy -and $firstPolicy.PSObject.Properties['PolicyType']
+        
+        if ($hasPolicyType) {
+             # Group by PolicyType first for global reports
+             $groups = $PolicyDataGrid | Group-Object PolicyType, PolicyId | Sort-Object { $_.Group[0].PolicyType }, { $_.Group[0].Platform }, { $_.Group[0].PolicyName }
+        } else {
+             $groups = $PolicyDataGrid | Group-Object PolicyId | Sort-Object { $_.Group[0].Platform }, { $_.Group[0].PolicyName }
+        }
+
         $platformSections = @()
+        $lastType = ""
+        
         foreach ($policyGroup in $groups) {
             $first      = $policyGroup.Group[0]
             $policyName = $first.PolicyName
             $platform   = $first.Platform
+            $thisType   = if ($hasPolicyType) { $first.PolicyType } else { "General" }
+            
+            $descRaw    = $first.PolicyDescription
             $descRaw    = $first.PolicyDescription
             $descHtml   = [System.Web.HttpUtility]::HtmlEncode($descRaw)
             $descPlain  = ($descHtml -replace '\s+',' ').Trim()
@@ -148,11 +215,17 @@ function Export-ToHtml {
             $rows = @()
             $hasFilterForPolicy = $false
             $intentsForPolicy = @()
+            
+            # Determine Intent display logic
+            $showIntent     = ($CurrentPolicyType -eq 'mobileApps') -or ($first.InstallIntent -and $first.InstallIntent -ne "") -or ($CurrentPolicyType -eq 'GlobalSearchResults' -and ($first.PolicyType -eq 'Mobile Apps' -or $first.ApplicationType))
+            $showAppDetails = ($CurrentPolicyType -eq 'mobileApps') -or ($CurrentPolicyType -eq 'GlobalSearchResults' -and ($first.PolicyType -eq 'Mobile Apps' -or $first.ApplicationType))
+            $showSchedule   = ($CurrentPolicyType -eq 'deviceHealthScripts') -or ($CurrentPolicyType -eq 'GlobalSearchResults' -and ($first.PolicyType -eq 'Remediation Scripts' -or $first.Schedule))
+
             if (-not $isUnassigned) {
                 foreach ($item in $assignments) {
                     if (-not [string]::IsNullOrWhiteSpace($item.GroupDisplayname)) {
                         if ($item.FilterDisplayname) { $hasFilterForPolicy = $true }
-                        if ($CurrentPolicyType -eq 'mobileApps' -and $item.InstallIntent -and ($intentsForPolicy -notcontains $item.InstallIntent)) { $intentsForPolicy += $item.InstallIntent }
+                        if ($showIntent -and $item.InstallIntent -and ($intentsForPolicy -notcontains $item.InstallIntent)) { $intentsForPolicy += $item.InstallIntent }
 
                         # Build rows with modern styling
                         $assignmentTypeVal = [string]$item.AssignmentType
@@ -188,7 +261,18 @@ function Export-ToHtml {
                         $groupNameCell = "<td><span class='grp-name'>$([System.Web.HttpUtility]::HtmlEncode($item.GroupDisplayname))</span></td>"
                         $platformCell  = "<td><span class='platform-label'>$([System.Web.HttpUtility]::HtmlEncode($item.Platform))</span></td>"
 
-                        if ($CurrentPolicyType -eq 'mobileApps') {
+                        # Extra Cells
+                        $notifCell = "<td><span class='small'>$([System.Web.HttpUtility]::HtmlEncode($item.Notification))</span></td>"
+                        $delOptCell = "<td><span class='small'>$([System.Web.HttpUtility]::HtmlEncode($item.DeliveryOptim))</span></td>"
+                        $schedCell = "<td><span class='small'>$([System.Web.HttpUtility]::HtmlEncode($item.Schedule))</span></td>"
+                        $intervalCell = "<td><span class='small'>$([System.Web.HttpUtility]::HtmlEncode($item.Interval))</span></td>"
+                        $schedTimeCell = "<td><span class='small'>$([System.Web.HttpUtility]::HtmlEncode($item.ScheduleTime))</span></td>"
+
+                        if ($showAppDetails) {
+                             $rowHtml = "<tr class='policy-row' data-assignmenttype='$([System.Web.HttpUtility]::HtmlAttributeEncode($item.AssignmentType))'>$groupNameCell$groupIdCell$platformCell$assignmentTypeCell$filterDisplayCell$filterTypeCell$installIntentCell$notifCell$delOptCell</tr>"
+                        } elseif ($showSchedule) {
+                             $rowHtml = "<tr class='policy-row' data-assignmenttype='$([System.Web.HttpUtility]::HtmlAttributeEncode($item.AssignmentType))'>$groupNameCell$groupIdCell$platformCell$assignmentTypeCell$schedCell$intervalCell$schedTimeCell</tr>"
+                        } elseif ($showIntent) {
                             $rowHtml = "<tr class='policy-row' data-assignmenttype='$([System.Web.HttpUtility]::HtmlAttributeEncode($item.AssignmentType))'>$groupNameCell$groupIdCell$platformCell$assignmentTypeCell$filterDisplayCell$filterTypeCell$installIntentCell</tr>"
                         } elseif ($CurrentPolicyType -in @('deviceCustomAttributeShellScripts','intents','deviceShellScripts','deviceManagementScripts')) {
                             $rowHtml = "<tr class='policy-row' data-assignmenttype='$([System.Web.HttpUtility]::HtmlAttributeEncode($item.AssignmentType))'>$groupNameCell$groupIdCell$platformCell$assignmentTypeCell</tr>"
@@ -206,9 +290,20 @@ function Export-ToHtml {
                 $assignmentTypesAttr = ($assignmentTypesForPolicy -join ';')
             }
             $intentsAttr = ''
-            if ($CurrentPolicyType -eq 'mobileApps' -and -not $isUnassigned) { $intentsAttr = ($intentsForPolicy -join ';') }
+            if ($showIntent -and -not $isUnassigned) { $intentsAttr = ($intentsForPolicy -join ';') }
             $hasFilterAttr = if ($hasFilterForPolicy) { 'True' } else { 'False' }
-            if ($CurrentPolicyType -eq 'mobileApps') { $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th><th>Filter</th><th>Filter Type</th><th>Intent</th>' } elseif ($CurrentPolicyType -in @('deviceCustomAttributeShellScripts','intents','deviceShellScripts','deviceManagementScripts')) { $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th>' } else { $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th><th>Filter</th><th>Filter Type</th>' }
+            
+            if ($showAppDetails) {
+                 $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th><th>Filter</th><th>Filter Type</th><th>Intent</th><th>Notification</th><th>Delivery Priority</th>'
+            } elseif ($showSchedule) {
+                 $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th><th>Schedule</th><th>Interval</th><th>Time</th>'
+            } elseif ($showIntent) { 
+                 $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th><th>Filter</th><th>Filter Type</th><th>Intent</th>' 
+            } elseif ($CurrentPolicyType -in @('deviceCustomAttributeShellScripts','intents','deviceShellScripts','deviceManagementScripts')) { 
+                 $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th>' 
+            } else { 
+                 $tableHeader = '<th>Group</th><th>GroupId</th><th>Platform</th><th>Assignment</th><th>Filter</th><th>Filter Type</th>' 
+            }
             $badge = ''
 
             $descBlock = if ($needsToggle) {
@@ -252,7 +347,7 @@ $(($rows -join "`n"))
 </div>
 "@
             }
-            $platformSections += [pscustomobject]@{ Platform=$platform; Html=$policyBlock; Unassigned=$isUnassigned }
+            $platformSections += [pscustomobject]@{ Platform=$platform; Html=$policyBlock; Unassigned=$isUnassigned; PolicyType=$thisType }
         }
 
         # Summary data
@@ -308,13 +403,38 @@ $overallSummaryCard
 $([string]::Join("`n", $platformCards))
 </div>
 "@
-        $platformGrouped = $platformSections | Group-Object Platform
-        $platformHtml = foreach ($pg in $platformGrouped) {
-            $groupHtml = ($pg.Group | ForEach-Object { $_.Html }) -join ''
-            $platNameRaw = $pg.Name
-            $platId = $platNameRaw.Replace(' ','-').ToLower()
-            $platNameEsc = [System.Web.HttpUtility]::HtmlEncode($platNameRaw)
-            "<div class='platform-section' data-platform='$platNameEsc'><h3 id='plat-$platId' class='mt-5 mb-3 section-title text-primary-dark'>$platNameEsc</h3>$groupHtml</div>"
+        if ($hasPolicyType) {
+             # Group by type first
+             $typeGrouped = $platformSections | Group-Object PolicyType
+             $platformHtml = foreach ($tg in $typeGrouped) {
+                  $tNameRaw = $tg.Name
+                  $tNameEsc = [System.Web.HttpUtility]::HtmlEncode($tNameRaw)
+                  
+                  # Header for the Policy Type
+                  $tHtml = "<div class='category-section mb-5'><h2 class='border-bottom pb-2 mb-4 text-secondary'>$tNameEsc</h2>"
+                  
+                  # Then group by Platform within this type
+                  $platGrouped = $tg.Group | Group-Object Platform
+                  foreach ($pg in $platGrouped) {
+                      $groupHtml = ($pg.Group | ForEach-Object { $_.Html }) -join ''
+                      $platNameRaw = $pg.Name
+                      # Make ID unique by including type name
+                      $platId = ($platNameRaw + "-" + $tNameRaw).Replace(' ','-').ToLower()
+                      $platNameEsc = [System.Web.HttpUtility]::HtmlEncode($platNameRaw)
+                      $tHtml += "<div class='platform-section' data-platform='$platNameEsc'><h3 id='plat-$platId' class='mt-4 mb-3 section-title text-primary-dark'>$platNameEsc</h3>$groupHtml</div>"
+                  }
+                  $tHtml += "</div>"
+                  $tHtml
+             }
+        } else {
+            $platformGrouped = $platformSections | Group-Object Platform
+            $platformHtml = foreach ($pg in $platformGrouped) {
+                $groupHtml = ($pg.Group | ForEach-Object { $_.Html }) -join ''
+                $platNameRaw = $pg.Name
+                $platId = $platNameRaw.Replace(' ','-').ToLower()
+                $platNameEsc = [System.Web.HttpUtility]::HtmlEncode($platNameRaw)
+                "<div class='platform-section' data-platform='$platNameEsc'><h3 id='plat-$platId' class='mt-5 mb-3 section-title text-primary-dark'>$platNameEsc</h3>$groupHtml</div>"
+            }
         }
         $platformHtmlJoined = ($platformHtml -join "`n")
 
@@ -638,7 +758,18 @@ $AssignmentReportButton.Add_Click({
 
         # Ensure Windows Forms types
         Add-Type -AssemblyName System.Windows.Forms
-        $baseName = "AssignmentReport_$($global:CurrentPolicyType)_$((Get-Date).ToString('yyyyMMdd_HHmmss'))"
+        
+        # Determine strict Policy Type for filename/title
+        $reportTypeToken = $global:CurrentPolicyType
+        if ([string]::IsNullOrWhiteSpace($reportTypeToken)) {
+            if ($global:IsGlobalSearchMode) {
+                $reportTypeToken = "GlobalSearchResults"
+            } else {
+                $reportTypeToken = "UnknownType"
+            }
+        }
+
+        $baseName = "AssignmentReport_${reportTypeToken}_$((Get-Date).ToString('yyyyMMdd_HHmmss'))"
 
         foreach ($fmt in $formats) {
             switch ($fmt) {
@@ -648,7 +779,7 @@ $AssignmentReportButton.Add_Click({
                     $dlg.Title    = 'Save Assignment Report as Markdown'
                     $dlg.FileName = "$baseName.md"
                     if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                        Export-ToMarkdown -OutputPath $dlg.FileName -PolicyDataGrid $policies -CurrentPolicyType $global:CurrentPolicyType
+                        Export-ToMarkdown -OutputPath $dlg.FileName -PolicyDataGrid $policies -CurrentPolicyType $reportTypeToken
                     }
                 }
                 'CSV' {
@@ -666,7 +797,7 @@ $AssignmentReportButton.Add_Click({
                     $dlg.Title    = 'Save Assignment Report as HTML'
                     $dlg.FileName = "$baseName.html"
                     if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                        Export-ToHtml -OutputPath $dlg.FileName -PolicyDataGrid $policies -CurrentPolicyType $global:CurrentPolicyType
+                        Export-ToHtml -OutputPath $dlg.FileName -PolicyDataGrid $policies -CurrentPolicyType $reportTypeToken
                     }
                 }
             }

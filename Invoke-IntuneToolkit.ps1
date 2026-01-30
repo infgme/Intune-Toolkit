@@ -17,7 +17,7 @@ Displays the main window of the application.
 #>
 
 
-$currentVersion = "v1.0.1"
+$currentVersion = "v1.2.0"
 
 
 #region Log File Setup
@@ -69,6 +69,7 @@ if (-Not (Test-Path $logFile)) {
 try {
     Add-Type -AssemblyName PresentationFramework
     Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName Microsoft.VisualBasic
     Write-IntuneToolkitLog "Successfully loaded required assemblies"
 } catch {
     $errorMessage = "Failed to load required assemblies: $($_.Exception.Message)"
@@ -151,12 +152,17 @@ function Show-Window {
         $AdvancedActionsCheckBox = $Window.FindName("AdvancedActionsCheckBox")
         $DeletePolicyButton = $Window.FindName("DeletePolicyButton")
         
+        # New Global Search Elements
+        $GlobalGroupSearchButton = $Window.FindName("GlobalGroupSearchButton")
+        $GlobalSearchProgressBar = $Window.FindName("GlobalSearchProgressBar")
+
         # Add filter clause logic sourced from external script
         
         # Unified export button
         $AssignmentReportButton = $Window.FindName("AssignmentReportButton")
         # Sidebar context toggles: only one can be selected
         $sidebarButtons = @(
+            $GlobalGroupSearchButton,
             $ConfigurationPoliciesButton,
             $DeviceConfigurationButton,
             $ComplianceButton,
@@ -204,12 +210,21 @@ function Show-Window {
         )
         function Set-BottomButtons {
             param([bool]$showActions)
-            foreach ($btn in $actionButtons) { $btn.Visibility = if ($showActions) { 'Visible' } else { 'Collapsed' } }
+            foreach ($btn in $actionButtons) { 
+                $btn.Visibility = if ($showActions) { 'Visible' } else { 'Collapsed' }
+                # Grey out action buttons if in Global Search Mode
+                if ($global:IsGlobalSearchMode) {
+                    $btn.IsEnabled = $false
+                } else {
+                    $btn.IsEnabled = $true
+                }
+            }
             foreach ($btn in $reportButtons) { $btn.Visibility = if ($showActions) { 'Collapsed' } else { 'Visible' } }
             
             # Special logic for DeletePolicyButton
             if ($showActions -and $AdvancedActionsCheckBox.IsChecked) {
                 $DeletePolicyButton.Visibility = 'Visible'
+                if ($global:IsGlobalSearchMode) { $DeletePolicyButton.IsEnabled = $false } else { $DeletePolicyButton.IsEnabled = $true }
             } else {
                 $DeletePolicyButton.Visibility = 'Collapsed'
             }
@@ -235,6 +250,7 @@ function Show-Window {
         #. .\Scripts\AssignmentReportButton.ps1
 
         $global:CurrentPolicyType = ""
+        $global:IsGlobalSearchMode = $false
 
         # ---------------------------
         # Unblock and Import Scripts
@@ -262,6 +278,8 @@ function Show-Window {
         . .\Scripts\DeletePolicyButton.ps1  # New Delete Policy script
         . .\Scripts\Show-SelectionDialog.ps1
         . .\Scripts\SearchButton.ps1
+        . .\Scripts\GlobalGroupSearchButton.ps1
+        . .\Scripts\Show-GroupSearchDialog.ps1
         . .\Scripts\RemediationScriptsButton.ps1
         . .\Scripts\RenameButton.ps1
         . .\Scripts\PlatformScriptsButton.ps1
@@ -281,6 +299,85 @@ function Show-Window {
         # Set the custom icon
         # ---------------------------
         Set-WindowIcon -Window $Window
+
+        # ---------------------------
+        # Check for cached Microsoft Graph session
+        # ---------------------------
+        try {
+            # Import Microsoft.Graph.Authentication module to check for cached session
+            if (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication) {
+                Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+                Write-IntuneToolkitLog "Imported Microsoft.Graph.Authentication module" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+            }
+            else {
+                Write-IntuneToolkitLog "Microsoft.Graph.Authentication module not installed, skipping cached session check" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+            }
+
+            $context = Get-MgContext -ErrorAction SilentlyContinue
+            if ($context -and $context.TenantId) {
+                Write-IntuneToolkitLog "Found cached Microsoft Graph session for tenant: $($context.TenantId)" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+                
+                # Update UI elements to reflect connected state
+                $StatusText.Text = "Please select a policy type."
+                $PolicyDataGrid.Visibility = "Visible"
+                $RenameButton.IsEnabled = $true
+                $DeleteAssignmentButton.IsEnabled = $true
+                $AddAssignmentButton.IsEnabled = $true
+                $BackupButton.IsEnabled = $true
+                $RestoreButton.IsEnabled = $true
+                $ConfigurationPoliciesButton.IsEnabled = $true
+                $GlobalGroupSearchButton.IsEnabled = $true
+                $DeviceConfigurationButton.IsEnabled = $true
+                $ComplianceButton.IsEnabled = $true
+                $AdminTemplatesButton.IsEnabled = $true
+                $ApplicationsButton.IsEnabled = $true
+                $AppConfigButton.IsEnabled = $true
+                $MacosScriptsButton.IsEnabled = $true
+                $IntentsButton.IsEnabled = $true
+                $RemediationScriptsButton.IsEnabled = $true
+                $PlatformScriptsButton.IsEnabled = $true
+                $ConnectButton.IsEnabled = $false
+                $ConnectEnterpriseAppButton.IsEnabled = $false
+                $LogoutButton.IsEnabled = $true
+                $RefreshButton.IsEnabled = $true
+                $SearchFieldComboBox.IsEnabled = $true
+                $SearchBox.IsEnabled = $true
+                $SearchButton.IsEnabled = $true
+                $AssignmentReportButton.IsEnabled = $true
+                $DeviceCustomAttributeShellScriptsButton.IsEnabled = $true
+                $AutopilotProfilesButton.IsEnabled = $true
+                $AddFilterButton.IsEnabled = $true
+
+                # Fetch and display tenant information
+                try {
+                    $tenant = Invoke-MgGraphRequest -Uri "https://graph.microsoft.com/v1.0/organization" -Method GET
+                    $user = Invoke-MgGraphRequest -Uri "https://graph.microsoft.com/v1.0/me" -Method GET
+                    $appInfo = if ($context.AppName) { "$($context.AppName) ($($context.ClientId))" } else { $context.ClientId }
+                    $TenantInfo.Text = "Tenant: $($tenant.value[0].displayName) | User: $($user.userPrincipalName)`nApp: $appInfo"
+                    Write-IntuneToolkitLog "Restored session - Tenant: $($tenant.value[0].displayName), User: $($user.userPrincipalName)" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+                }
+                catch {
+                    Write-IntuneToolkitLog "Could not fetch tenant details from cached session: $($_.Exception.Message)" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+                    $TenantInfo.Text = "Connected (cached session)"
+                }
+
+                # Fetch security groups
+                try {
+                    Write-IntuneToolkitLog "Fetching security groups from cached session" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+                    $global:AllSecurityGroups = Get-AllSecurityGroups
+                    Write-IntuneToolkitLog "Successfully fetched security groups" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+                }
+                catch {
+                    Write-IntuneToolkitLog "Could not fetch security groups: $($_.Exception.Message)" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+                }
+            }
+            else {
+                Write-IntuneToolkitLog "No cached Microsoft Graph session found" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+            }
+        }
+        catch {
+            Write-IntuneToolkitLog "Error checking for cached session: $($_.Exception.Message)" -component "Main-IntuneToolkit" -file "Invoke-IntuneToolkit.ps1"
+        }
 
         # ---------------------------
         # Show the window

@@ -353,6 +353,15 @@ function Process-Assignment {
         }
     }
 
+    # Extract Mobile App Settings
+    $notification = ""
+    $deliveryOpt = ""
+    if ($isMobileApp -and $assignment.settings) {
+         # Some assignment settings might be wrapped depending on graph version/SDK, checking property existence
+         if ($assignment.settings.notifications) { $notification = $assignment.settings.notifications }
+         if ($assignment.settings.deliveryOptimizationPriority) { $deliveryOpt = $assignment.settings.deliveryOptimizationPriority }
+    }
+
     # Build and return the processed assignment object.
     return [PSCustomObject]@{
         PolicyId          = $policy.id
@@ -368,6 +377,8 @@ function Process-Assignment {
         Schedule          = $scheduleType
         Interval          = $scheduleInterval
         ScheduleTime      = $scheduleDateTime
+        Notification      = $notification
+        DeliveryOptim     = $deliveryOpt
         Platform          = $platform
         ApplicationType   = if ($isMobileApp) { if ($policy.'@odata.type') { Format-ApplicationType $policy.'@odata.type' } else { "" } } else { "" }
     }
@@ -480,7 +491,10 @@ function Reload-Grid {
                     Schedule          = ""
                     Interval          = ""
                     ScheduleTime      = ""
+                    Notification      = ""
+                    DeliveryOptim     = ""
                     Platform          = $platform
+                    ApplicationType   = ""
                 }
             }
         } elseif ($type -eq "mobileApps") {
@@ -508,6 +522,8 @@ function Reload-Grid {
                     Schedule          = ""
                     Interval          = ""
                     ScheduleTime      = ""
+                    Notification      = ""
+                    DeliveryOptim     = ""
                     Platform          = $platform
                     ApplicationType   = Format-ApplicationType $policy.'@odata.type'
                 }
@@ -536,7 +552,13 @@ function Reload-Grid {
                     FilterDisplayname = ""
                     FilterType        = ""
                     InstallIntent     = ""
+                    Schedule          = ""
+                    Interval          = ""
+                    ScheduleTime      = ""
+                    Notification      = ""
+                    DeliveryOptim     = ""
                     Platform          = $platform
+                    ApplicationType   = ""
                 }
             }
         }
@@ -559,6 +581,9 @@ function Load-PolicyData {
         [Parameter(Mandatory = $true)]
         [string] $loadedMessage
     )
+
+    # Reset Global Search Mode flag
+    $global:IsGlobalSearchMode = $false
 
     # Update the UI to indicate loading status.
     $StatusText.Text = $loadingMessage

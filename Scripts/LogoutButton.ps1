@@ -48,6 +48,7 @@ $LogoutButton.Add_Click({
         $SearchBox.IsEnabled = $false
         $SearchButton.IsEnabled = $false
         $AssignmentReportButton.IsEnabled = $false
+        $GlobalGroupSearchButton.IsEnabled = $false
         $RefreshButton.IsEnabled = $false
         $RenameButton.IsEnabled = $false
         $IntentsButton.IsEnabled = $false

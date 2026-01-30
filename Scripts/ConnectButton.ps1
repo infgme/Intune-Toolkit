@@ -35,8 +35,12 @@ $ConnectButton.Add_Click({
         Write-IntuneToolkitLog "Successfully retrieved tenant information: $($tenant.value[0].displayName)" -component "Connect-Button" -file "ConnectButton.ps1"
         Write-IntuneToolkitLog "Successfully retrieved user information: $($user.userPrincipalName)" -component "Connect-Button" -file "ConnectButton.ps1"
 
-        # Display tenant name and signed-in user
-        $TenantInfo.Text = "Tenant: $($tenant.value[0].displayName) - Signed in as: $($user.userPrincipalName)"
+        # Get app information
+        $context = Get-MgContext
+        $appInfo = if ($context.AppName) { "$($context.AppName) ($($context.ClientId))" } else { $context.ClientId }
+
+        # Display tenant name, signed-in user, and app
+        $TenantInfo.Text = "Tenant: $($tenant.value[0].displayName) | User: $($user.userPrincipalName)`nApp: $appInfo"
         Write-IntuneToolkitLog "Updated TenantInfo text" -component "Connect-Button" -file "ConnectButton.ps1"
 
         $global:AllSecurityGroups = Get-AllSecurityGroups
@@ -70,6 +74,7 @@ $ConnectButton.Add_Click({
         # Enable unified export button instead of separate MD/CSV buttons
         $AssignmentReportButton.IsEnabled = $true
         $DeviceCustomAttributeShellScriptsButton.IsEnabled = $true
+        $GlobalGroupSearchButton.IsEnabled = $true
 
         Write-IntuneToolkitLog "UI elements updated successfully" -component "Connect-Button" -file "ConnectButton.ps1"
 

@@ -1,33 +1,33 @@
 # Release Notes
 ### v1.2.0
 - **New Features**
+  - **Multi-Method Authentication Support**
+    - Client Secret, Certificate-Based, and Interactive/Delegated authentication methods.
+    - Certificate browser to select from CurrentUser and LocalMachine certificate stores.
+    - Support for custom app IDs and single-tenant applications.
+  - **Configuration Manager**
+    - Save, load, and delete authentication configurations stored in Windows Registry (HKCU - no admin rights required).
+    - Auto-connect feature detects and restores cached Microsoft Graph sessions on startup.
+  - **Device Health Scripts (Remediation Scripts)**
+    - Full support to view, assign, delete assignments, and restore Device Health Scripts.
+    - Schedule configuration with Daily, Hourly, and RunOnce execution options.
+  - **Global Group Search**
+    - Search across all policy types with visual toggle integration.
+    - Policy Type column to distinguish between resource types.
+    - Safety lock disables modification actions when viewing search results.
+  - **Assignment Reports**
+    - Reports grouped by Policy Type with extended columns for Mobile Apps and Remediation Scripts.
+    - Deleted groups are now properly displayed in the grid instead of showing as empty fields.
   - **Delete Policy**
-    - Added ability to **delete policies** directly from the toolkit.
-    - **Advanced Actions**: Added an "Advanced Actions" checkbox (bottom-left) to enable sensitive operations like deletion.
-    - **Safety**: Enhanced confirmation dialogs with custom actions (Red "Delete" button) and dynamic messages identifying the specific policy type.
+    - Delete policies directly from the toolkit with Advanced Actions checkbox to enable sensitive operations.
+    - Enhanced confirmation dialogs with policy-specific messages.
 - **UI Enhancements**
-  - **Assignment Dialog**: Updated the assignment popup (`SelectionDialog`) with a scrollable view to better support complex forms (like Remediation script schedules) and smaller screens, while keeping action buttons pinned to the bottom.
-
-### v1.1.0
-- **New Features**
-  - **Device Health Scripts (Remediation Scripts) Support**
-    - Added full support for **Device Health Scripts** (Remediation Scripts).
-    - **View**: Added support to view Device Health Scripts in the main DataGrid, including detailed Schedule information (Interval, Time, Schedule Type).
-    - **Assign**: Added support to Assign Device Health Scripts to groups.
-      - **Schedule Configuration**: New UI in the Assignment dialog to configure specific execution schedules:
-        - **Daily**: Runs every X days at specific time.
-        - **Hourly**: Runs every X hours.
-        - **RunOnce**: Runs once at a specific date and time.
-      - Implemented specific validation logic for "Hourly" schedules (excludes `useUtc` property).
-    - **Delete Assignment**: Added support to delete assignments for Device Health Scripts.
-      - Ensures the mandatory `runSchedule` property is preserved for remaining assignments.
-    - **Restore**: Added support to restore Device Health Scripts assignments from backup JSON files.
-  - **UI Enhancements**
-    - Updated Selection Dialog to dynamically show/hide input fields based on the selected Schedule Type.
-
-- **BugFix**
-  - Fixed an issue where assigning an "Hourly" schedule to a remediation script would fail with a 500 Internal Server Error due to invalid payload structure.
-  - Fixed an issue where deleting or restoring assignments for Device Health Scripts would fail due to incorrect payload property names (`assignments` vs `deviceHealthScriptAssignments`).
+  - Styled authentication dialog matching application theme.
+  - Scrollable assignment dialog for complex forms and smaller screens.
+  - Dynamic input panels based on authentication method or schedule type.
+- **Documentation**
+  - Comprehensive authentication setup guide with Azure Portal configuration instructions.
+  - Documented required permissions for Application and Delegated scenarios.
 
 ### v1.0.1
 - **BugFix**
