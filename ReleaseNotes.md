@@ -1,4 +1,34 @@
 # Release Notes
+### v1.2.0
+- **New Features**
+  - **Multi-Method Authentication Support**
+    - Client Secret, Certificate-Based, and Interactive/Delegated authentication methods.
+    - Certificate browser to select from CurrentUser and LocalMachine certificate stores.
+    - Support for custom app IDs and single-tenant applications.
+  - **Configuration Manager**
+    - Save, load, and delete authentication configurations stored in Windows Registry (HKCU - no admin rights required).
+    - Auto-connect feature detects and restores cached Microsoft Graph sessions on startup.
+  - **Device Health Scripts (Remediation Scripts)**
+    - Full support to view, assign, delete assignments, and restore Device Health Scripts.
+    - Schedule configuration with Daily, Hourly, and RunOnce execution options.
+  - **Global Group Search**
+    - Search across all policy types with visual toggle integration.
+    - Policy Type column to distinguish between resource types.
+    - Safety lock disables modification actions when viewing search results.
+  - **Assignment Reports**
+    - Reports grouped by Policy Type with extended columns for Mobile Apps and Remediation Scripts.
+    - Deleted groups are now properly displayed in the grid instead of showing as empty fields.
+  - **Delete Policy**
+    - Delete policies directly from the toolkit with Advanced Actions checkbox to enable sensitive operations.
+    - Enhanced confirmation dialogs with policy-specific messages.
+- **UI Enhancements**
+  - Styled authentication dialog matching application theme.
+  - Scrollable assignment dialog for complex forms and smaller screens.
+  - Dynamic input panels based on authentication method or schedule type.
+- **Documentation**
+  - Comprehensive authentication setup guide with Azure Portal configuration instructions.
+  - Documented required permissions for Application and Delegated scenarios.
+
 ### v1.0.1
 - **BugFix**
   - BREAKING CHANGE -> Permission requirements has changed on script policies. DeviceManagementScripts.ReadWrite.All is now required and Consent Request might be required to add the permissions

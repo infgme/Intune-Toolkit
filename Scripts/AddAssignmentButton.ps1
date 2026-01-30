@@ -79,6 +79,9 @@ $AddAssignmentButton.Add_Click({
 
         # Determine whether to include intent selection based on the current policy type.
         $includeIntent = ($global:CurrentPolicyType -eq "mobileApps")
+        
+        # Determine if remediation script
+        $isRemediation = ($global:CurrentPolicyType -eq "deviceHealthScripts")
 
         # Prepare appODataType only for mobileApps
         $appODataType = $null
@@ -96,9 +99,9 @@ $AddAssignmentButton.Add_Click({
         do {
             try {
                 if ($global:CurrentPolicyType -eq "mobileApps") {
-                    $selection = Show-SelectionDialog -groups $allGroups -filters $allFilters -includeIntent $includeIntent -appODataType $appODataType
+                   $selection = Show-SelectionDialog -groups $allGroups -filters $allFilters -includeIntent $includeIntent -appODataType $appODataType -isRemediationScript $isRemediation
                 } else {
-                    $selection = Show-SelectionDialog -groups $allGroups -filters $allFilters -includeIntent $includeIntent
+                   $selection = Show-SelectionDialog -groups $allGroups -filters $allFilters -includeIntent $includeIntent -isRemediationScript $isRemediation
                 }
             }
             catch {
@@ -138,6 +141,9 @@ $AddAssignmentButton.Add_Click({
                 }
                 if ($sel.FilterType) {
                     $line += " - [Filter Type: $($sel.FilterType)]"
+                }
+                if ($isRemediation -and $sel.ScheduleType) {
+                    $line += " - [Schedule: $($sel.ScheduleType)]"
                 }
                 $line
             }
@@ -287,6 +293,48 @@ $AddAssignmentButton.Add_Click({
                     }
                     $currentAssignments += $newAssignment
                     $bodyObject = @{ deviceManagementScriptAssignments = $currentAssignments }
+                }
+                elseif ($global:CurrentPolicyType -eq "deviceHealthScripts") {
+                    # Construct Remediation Script Assignment
+                    $newAssignment = @{ 
+                        target = $target
+                        runRemediationScript = $sel.RunRemediation
+                    }
+                    
+                    if ($sel.AssignmentType -eq "Exclude") {
+                        # No schedule for exclusions
+                        $newAssignment.runSchedule = $null
+                    } else {
+                        # Build Run Schedule
+                        $schedule = @{}
+                        $schedule.interval = [int]$sel.Interval
+                        
+                        switch ($sel.ScheduleType) {
+                            "Daily" {
+                                $schedule.'@odata.type' = "#microsoft.graph.deviceHealthScriptDailySchedule"
+                                $schedule.time = $sel.StartTime
+                                $schedule.useUtc = $false
+                            }
+                            "Hourly" {
+                                $schedule.'@odata.type' = "#microsoft.graph.deviceHealthScriptHourlySchedule"
+                            }
+                            "RunOnce" {
+                                $schedule.'@odata.type' = "#microsoft.graph.deviceHealthScriptRunOnceSchedule"
+                                $schedule.date = Get-Date($sel.StartDate) -Format "yyyy-MM-dd"
+                                $schedule.time = $sel.StartTime
+                                $schedule.useUtc = $false
+                            }
+                        }
+                        $newAssignment.runSchedule = $schedule
+                    }
+
+                    if ($sel.Filter) {
+                        $newAssignment.target.deviceAndAppManagementAssignmentFilterId = $sel.Filter.Tag
+                        $newAssignment.target.deviceAndAppManagementAssignmentFilterType = $sel.FilterType
+                    }
+                    
+                    $currentAssignments += $newAssignment
+                    $bodyObject = @{ deviceHealthScriptAssignments = $currentAssignments }
                 }
                 else {
                     $newAssignment = @{ target = $target }

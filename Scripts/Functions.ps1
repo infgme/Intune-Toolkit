@@ -297,8 +297,12 @@ function Process-Assignment {
     } elseif ($assignment.target.'@odata.type' -eq "#microsoft.graph.allLicensedUsersAssignmentTarget" -or 
               $assignment.target.'@odata.type' -eq "#microsoft.graph.allUsersAssignmentTarget") {
         $groupDisplayName = "All Users"
-    } elseif ($assignment.target.groupId -and $groupLookup.ContainsKey($assignment.target.groupId)) {
-        $groupDisplayName = $groupLookup[$assignment.target.groupId]
+    } elseif ($assignment.target.groupId) {
+        if ($groupLookup.ContainsKey($assignment.target.groupId)) {
+            $groupDisplayName = $groupLookup[$assignment.target.groupId]
+        } else {
+            $groupDisplayName = "Group does not exist any more ($($assignment.target.groupId))"
+        }
     } else {
         $groupDisplayName = ""
     }
@@ -317,6 +321,47 @@ function Process-Assignment {
         "Include" 
     }
 
+    # Extract runSchedule info if available
+    $scheduleType = ""
+    $scheduleInterval = ""
+    $scheduleDateTime = ""
+    
+    if ($assignment.runSchedule) {
+        if ($assignment.runSchedule.'@odata.type') {
+            $scheduleType = $assignment.runSchedule.'@odata.type' -replace "#microsoft.graph.deviceHealthScript", "" -replace "Schedule", ""
+        }
+        
+        $intervalVal = $assignment.runSchedule.interval
+        
+        if ($scheduleType -eq "RunOnce") {
+             $scheduleInterval = ""
+        } elseif ($scheduleType -eq "Hourly") {
+             if ($intervalVal -eq 1) { $scheduleInterval = "Repeats every hour" }
+             else { $scheduleInterval = "Repeats every $intervalVal hours" }
+        } elseif ($scheduleType -eq "Daily") {
+             if ($intervalVal -eq 1) { $scheduleInterval = "Repeats every day" }
+             else { $scheduleInterval = "Repeats every $intervalVal days" }
+        } else {
+             if ($intervalVal) { $scheduleInterval = $intervalVal }
+        }
+        
+        $timeParts = @()
+        if ($assignment.runSchedule.date) { $timeParts += $assignment.runSchedule.date }
+        if ($assignment.runSchedule.time) { $timeParts += $assignment.runSchedule.time }
+        if ($timeParts.Count -gt 0) {
+            $scheduleDateTime = $timeParts -join " "
+        }
+    }
+
+    # Extract Mobile App Settings
+    $notification = ""
+    $deliveryOpt = ""
+    if ($isMobileApp -and $assignment.settings) {
+         # Some assignment settings might be wrapped depending on graph version/SDK, checking property existence
+         if ($assignment.settings.notifications) { $notification = $assignment.settings.notifications }
+         if ($assignment.settings.deliveryOptimizationPriority) { $deliveryOpt = $assignment.settings.deliveryOptimizationPriority }
+    }
+
     # Build and return the processed assignment object.
     return [PSCustomObject]@{
         PolicyId          = $policy.id
@@ -329,6 +374,11 @@ function Process-Assignment {
         FilterDisplayname = $filterDisplayName
         FilterType        = $assignment.target.deviceAndAppManagementAssignmentFilterType
         InstallIntent     = if ($isMobileApp) { if ($assignment.intent) { $assignment.intent } else { "" } } else { "" }
+        Schedule          = $scheduleType
+        Interval          = $scheduleInterval
+        ScheduleTime      = $scheduleDateTime
+        Notification      = $notification
+        DeliveryOptim     = $deliveryOpt
         Platform          = $platform
         ApplicationType   = if ($isMobileApp) { if ($policy.'@odata.type') { Format-ApplicationType $policy.'@odata.type' } else { "" } } else { "" }
     }
@@ -387,6 +437,8 @@ function Reload-Grid {
             $platform = Get-PlatformApps -odataType $policy.'@odata.type'
         } elseif ($type -eq "groupPolicyConfigurations") {
             $platform = "Windows"
+        } elseif ($type -eq "deviceHealthScripts") {
+            $platform = "Windows"
         } elseif ($type -eq "deviceManagementScripts") {
             $platform = "Windows"
         } elseif ($type -eq "deviceShellScripts") {
@@ -436,7 +488,13 @@ function Reload-Grid {
                     FilterDisplayname = ""
                     FilterType        = ""
                     InstallIntent     = ""
+                    Schedule          = ""
+                    Interval          = ""
+                    ScheduleTime      = ""
+                    Notification      = ""
+                    DeliveryOptim     = ""
                     Platform          = $platform
+                    ApplicationType   = ""
                 }
             }
         } elseif ($type -eq "mobileApps") {
@@ -461,6 +519,11 @@ function Reload-Grid {
                     FilterDisplayname = ""
                     FilterType        = ""
                     InstallIntent     = ""
+                    Schedule          = ""
+                    Interval          = ""
+                    ScheduleTime      = ""
+                    Notification      = ""
+                    DeliveryOptim     = ""
                     Platform          = $platform
                     ApplicationType   = Format-ApplicationType $policy.'@odata.type'
                 }
@@ -489,7 +552,13 @@ function Reload-Grid {
                     FilterDisplayname = ""
                     FilterType        = ""
                     InstallIntent     = ""
+                    Schedule          = ""
+                    Interval          = ""
+                    ScheduleTime      = ""
+                    Notification      = ""
+                    DeliveryOptim     = ""
                     Platform          = $platform
+                    ApplicationType   = ""
                 }
             }
         }
@@ -513,6 +582,9 @@ function Load-PolicyData {
         [string] $loadedMessage
     )
 
+    # Reset Global Search Mode flag
+    $global:IsGlobalSearchMode = $false
+
     # Update the UI to indicate loading status.
     $StatusText.Text = $loadingMessage
     $ConfigurationPoliciesButton.IsEnabled = $false
@@ -526,9 +598,11 @@ function Load-PolicyData {
     $PlatformScriptsButton.IsEnabled = $false
     $MacosScriptsButton.IsEnabled = $false
     $DeleteAssignmentButton.IsEnabled = $false
+    $DeletePolicyButton.IsEnabled = $false
     $AddAssignmentButton.IsEnabled = $false
     $BackupButton.IsEnabled = $false
     $RestoreButton.IsEnabled = $false
+    $RemediationScriptsButton.IsEnabled = $false
     $SearchFieldComboBox.IsEnabled = $false
     $SearchBox.IsEnabled = $false
     $SearchButton.IsEnabled = $false
@@ -552,6 +626,11 @@ function Load-PolicyData {
     $FilterDisplayNameColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Filter Display Name" }
     $FilterTypeColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Filter Type" }
 
+    # Retrieve columns for device health scripts (schedule info)
+    $ScheduleColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Schedule" }
+    $IntervalColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Interval" }
+    $ScheduleTimeColumn = $PolicyDataGrid.Columns | Where-Object { $_.Header -eq "Schedule Time" }
+
     if ($policyType -eq "mobileApps") {
         $InstallIntentColumn.Visibility = [System.Windows.Visibility]::Visible
         $ApplicationTypeColumn.Visibility = [System.Windows.Visibility]::Visible
@@ -559,6 +638,17 @@ function Load-PolicyData {
         $InstallIntentColumn.Visibility = [System.Windows.Visibility]::Collapsed
         $ApplicationTypeColumn.Visibility = [System.Windows.Visibility]::Collapsed
     }
+
+    if ($policyType -eq "deviceHealthScripts") {
+        if ($ScheduleColumn) { $ScheduleColumn.Visibility = [System.Windows.Visibility]::Visible }
+        if ($IntervalColumn) { $IntervalColumn.Visibility = [System.Windows.Visibility]::Visible }
+        if ($ScheduleTimeColumn) { $ScheduleTimeColumn.Visibility = [System.Windows.Visibility]::Visible }
+    } else {
+        if ($ScheduleColumn) { $ScheduleColumn.Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($IntervalColumn) { $IntervalColumn.Visibility = [System.Windows.Visibility]::Collapsed }
+        if ($ScheduleTimeColumn) { $ScheduleTimeColumn.Visibility = [System.Windows.Visibility]::Collapsed }
+    }
+
     if ($policyType -eq "deviceShellScripts" -or $policyType -eq "intents" -or $policyType -eq "deviceManagementScripts" -or $policyType -eq "deviceCustomAttributeShellScripts" -or $policyType -eq "windowsAutopilotDeploymentProfiles") {
         $FilterDisplayNameColumn.Visibility = [System.Windows.Visibility]::Collapsed
         $FilterTypeColumn.Visibility = [System.Windows.Visibility]::Collapsed
@@ -604,12 +694,14 @@ function Load-PolicyData {
     $AddAssignmentButton.IsEnabled = $true
     $BackupButton.IsEnabled = $true
     $RestoreButton.IsEnabled = $true
+    $RemediationScriptsButton.IsEnabled = $true
     $SearchFieldComboBox.IsEnabled = $true
     $SearchBox.IsEnabled = $true
     $SearchButton.IsEnabled = $true
     $AssignmentReportButton.IsEnabled = $true
     $RefreshButton.IsEnabled = $true
     $RenameButton.IsEnabled = $true
+    $DeletePolicyButton.IsEnabled = $true
     $IntentsButton.IsEnabled = $true
     $DeviceCustomAttributeShellScriptsButton.IsEnabled = $true
     # Enable add-filter button after load
@@ -786,7 +878,16 @@ function Show-ExportOptionsDialog {
 function Show-ConfirmationDialog {
     param (
         [Parameter(Mandatory = $true)]
-        [string]$SummaryText
+        [string]$SummaryText,
+
+        [Parameter(Mandatory = $false)]
+        [string]$ConfirmButtonText = "OK",
+
+        [Parameter(Mandatory = $false)]
+        [string]$ConfirmButtonColor = "#007ACC", # Default blue
+
+        [Parameter(Mandatory = $false)]
+        [string]$Title = "Confirm Assignment Changes"
     )
 
     # Define the path to the XAML file that contains the dialog layout.
@@ -820,8 +921,23 @@ function Show-ConfirmationDialog {
         return $false
     }
 
+    # Set Title and Header
+    $Window.Title = $Title
+    $TitleTextBlock.Text = $Title
+
     # Populate the details text.
     $DetailsTextBlock.Text = $SummaryText
+
+    # Update Confirm Button Text and Color
+    $OkButton.Content = $ConfirmButtonText
+    try {
+        $brushConverter = New-Object System.Windows.Media.BrushConverter
+        $brush = $brushConverter.ConvertFromString($ConfirmButtonColor)
+        $OkButton.Background = $brush
+        $OkButton.BorderBrush = $brush
+    } catch {
+        Write-IntuneToolkitLog "Failed to set custom color: $_" -component "Show-ConfirmationDialog" -file "Functions.ps1"
+    }
 
     # OK button: return $true
     $OkButton.Add_Click({

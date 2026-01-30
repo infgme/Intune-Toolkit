@@ -116,6 +116,10 @@ $DeleteAssignmentButton.Add_Click({
                         if ($global:CurrentPolicyType -eq "mobileApps") {
                             $assignmentObject.intent = $assignment.intent
                         }
+                        # For device health scripts, retain the run schedule.
+                        if ($global:CurrentPolicyType -eq "deviceHealthScripts") {
+                            $assignmentObject.runSchedule = $assignment.runSchedule
+                        }
                         $updatedAssignments += $assignmentObject
                     }
                 }
@@ -134,6 +138,11 @@ $DeleteAssignmentButton.Add_Click({
                         $global:CurrentPolicyType -eq "deviceCustomAttributeShellScripts") {
                     $bodyObject = @{
                         deviceManagementScriptAssignments = $updatedAssignments
+                    }
+                }
+                elseif ($global:CurrentPolicyType -eq "deviceHealthScripts") {
+                    $bodyObject = @{
+                        deviceHealthScriptAssignments = $updatedAssignments
                     }
                 }
                 else {
